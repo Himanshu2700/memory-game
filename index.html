@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Memory Match — Card Game</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0d0f;
+      --surface: #18181c;
+      --surface2: #232328;
+      --accent: #b5ff47;
+      --accent2: #ff6b35;
+      --text: #f4f4f0;
+      --muted: #888880;
+      --card-back: #1e1e24;
+      --radius: 14px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem 4rem;
+      overflow-x: hidden;
+    }
+
+    /* Background grid pattern */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(181,255,71,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(181,255,71,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 540px;
+    }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .badge {
+      display: inline-block;
+      background: rgba(181,255,71,0.12);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 99px;
+      border: 1px solid rgba(181,255,71,0.25);
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(2rem, 8vw, 3.2rem);
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+
+    h1 span { color: var(--accent); }
+
+    .tagline {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    /* ── Difficulty ── */
+    .diff-bar {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 1.5rem;
+    }
+
+    .diff-btn {
+      padding: 7px 18px;
+      border-radius: 99px;
+      font-size: 13px;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      border: 1px solid #333;
+      background: transparent;
+      color: var(--muted);
+      transition: all 0.2s;
+    }
+
+    .diff-btn:hover { border-color: #555; color: var(--text); }
+    .diff-btn.active {
+      background: var(--accent);
+      color: #0d0d0f;
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* ── Stats ── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat {
+      background: var(--surface);
+      border: 1px solid #2a2a2e;
+      border-radius: var(--radius);
+      padding: 14px 12px;
+      text-align: center;
+    }
+
+    .stat-val {
+      font-family: 'Syne', sans-serif;
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .stat-lbl {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 4px;
+    }
+
+    /* ── Grid ── */
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 1.5rem;
+    }
+
+    /* ── Card ── */
+    .card {
+      aspect-ratio: 1;
+      cursor: pointer;
+      perspective: 700px;
+    }
+
+    .card-inner {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      border-radius: var(--radius);
+    }
+
+    .card.flipped .card-inner,
+    .card.matched .card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .card-front,
+    .card-back {
+      position: absolute;
+      inset: 0;
+      border-radius: var(--radius);
+      backface-visibility: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card-front {
+      background: var(--card-back);
+      border: 1px solid #2a2a2e;
+      font-size: 22px;
+      color: #333;
+      transition: border-color 0.2s;
+    }
+
+    .card-front::after {
+      content: "?";
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      color: #2e2e36;
+    }
+
+    .card:not(.matched):not(.flipped):hover .card-front {
+      border-color: rgba(181,255,71,0.35);
+      background: #202026;
+    }
+
+    .card-back {
+      background: var(--surface2);
+      border: 1px solid #333;
+      transform: rotateY(180deg);
+      font-size: clamp(22px, 5vw, 30px);
+    }
+
+    .card.matched .card-back {
+      background: rgba(181,255,71,0.1);
+      border-color: rgba(181,255,71,0.4);
+    }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 12px 28px;
+      border-radius: 99px;
+      font-size: 14px;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid #333;
+      background: transparent;
+      color: var(--text);
+      transition: all 0.2s;
+      letter-spacing: 0.02em;
+    }
+
+    .btn:hover { border-color: var(--accent); color: var(--accent); }
+    .btn:active { transform: scale(0.97); }
+
+    .btn.primary {
+      background: var(--accent);
+      color: #0d0d0f;
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+    .btn.primary:hover { background: #c8ff66; color: #0d0d0f; border-color: #c8ff66; }
+
+    /* ── Win Message ── */
+    .win-msg {
+      display: none;
+      background: var(--surface);
+      border: 1px solid rgba(181,255,71,0.35);
+      border-radius: var(--radius);
+      padding: 22px;
+      text-align: center;
+      margin-bottom: 1.5rem;
+      animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .win-msg.show { display: block; }
+
+    @keyframes popIn {
+      from { transform: scale(0.85); opacity: 0; }
+      to   { transform: scale(1);    opacity: 1; }
+    }
+
+    .win-emoji { font-size: 36px; margin-bottom: 8px; }
+    .win-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+    .win-sub { font-size: 13px; color: var(--muted); }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      margin-top: 2.5rem;
+      font-size: 12px;
+      color: #444;
+      letter-spacing: 0.05em;
+    }
+
+    footer span { color: var(--accent); }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="badge">🎮 Mini Project</div>
+    <h1>Memory<br/><span>Match</span></h1>
+    <p class="tagline">Flip cards and find all matching pairs</p>
+  </header>
+
+  <div class="diff-bar">
+    <button class="diff-btn active" onclick="setDiff(6,'Easy')">Easy</button>
+    <button class="diff-btn" onclick="setDiff(8,'Medium')">Medium</button>
+    <button class="diff-btn" onclick="setDiff(10,'Hard')">Hard</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-val" id="moves">0</div>
+      <div class="stat-lbl">Moves</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="pairs">0</div>
+      <div class="stat-lbl">Pairs Found</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="timer">0s</div>
+      <div class="stat-lbl">Time</div>
+    </div>
+  </div>
+
+  <div class="win-msg" id="winMsg">
+    <div class="win-emoji">🎉</div>
+    <div class="win-title">You won!</div>
+    <div class="win-sub" id="winSub"></div>
+  </div>
+
+  <div id="grid"></div>
+
+  <div class="controls">
+    <button class="btn primary" onclick="newGame()">New Game</button>
+  </div>
+
+  <footer>Built with HTML · CSS · JavaScript &nbsp;|&nbsp; <span>Memory Match</span></footer>
+</div>
+
+<script>
+  const EMOJIS = [
+    "🐶","🐱","🐭","🐰","🦊","🐻","🐼","🐨","🐯","🦁",
+    "🐮","🐸","🐵","🐔","🐧","🦆","🦅","🦉","🐝","🦋",
+    "🐢","🦖","🦄","🐙"
+  ];
+
+  let pairCount = 6, diffName = 'Easy';
+  let flipped = [], matched = 0, moves = 0, lock = false;
+  let timerVal = 0, timerInt = null, started = false;
+
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function setDiff(n, name) {
+    pairCount = n;
+    diffName = name;
+    document.querySelectorAll('.diff-btn').forEach(b => {
+      b.classList.toggle('active', b.textContent.trim() === name);
+    });
+    newGame();
+  }
+
+  function newGame() {
+    clearInterval(timerInt);
+    timerVal = 0; moves = 0; matched = 0;
+    started = false; flipped = []; lock = false;
+
+    document.getElementById('moves').textContent = '0';
+    document.getElementById('pairs').textContent = '0';
+    document.getElementById('timer').textContent = '0s';
+    document.getElementById('winMsg').classList.remove('show');
+
+    const chosen = shuffle(EMOJIS).slice(0, pairCount);
+    const deck   = shuffle([...chosen, ...chosen]);
+
+    const cols = pairCount <= 6 ? 3 : 4;
+    const grid = document.getElementById('grid');
+    grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    grid.innerHTML = '';
+
+    deck.forEach((emoji, i) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.dataset.emoji = emoji;
+      card.innerHTML = `
+        <div class="card-inner">
+          <div class="card-front"></div>
+          <div class="card-back">${emoji}</div>
+        </div>`;
+      card.addEventListener('click', () => flipCard(card));
+      grid.appendChild(card);
+    });
+  }
+
+  function startTimer() {
+    timerInt = setInterval(() => {
+      timerVal++;
+      document.getElementById('timer').textContent = timerVal + 's';
+    }, 1000);
+  }
+
+  function flipCard(card) {
+    if (lock || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+    if (!started) { started = true; startTimer(); }
+
+    card.classList.add('flipped');
+    flipped.push(card);
+
+    if (flipped.length === 2) {
+      lock = true;
+      moves++;
+      document.getElementById('moves').textContent = moves;
+
+      const [a, b] = flipped;
+      if (a.dataset.emoji === b.dataset.emoji) {
+        a.classList.add('matched');
+        b.classList.add('matched');
+        matched++;
+        document.getElementById('pairs').textContent = matched;
+        flipped = [];
+        lock = false;
+
+        if (matched === pairCount) {
+          clearInterval(timerInt);
+          const msg = document.getElementById('winMsg');
+          document.getElementById('winSub').textContent =
+            `${moves} moves · ${timerVal} seconds · ${diffName} difficulty`;
+          msg.classList.add('show');
+        }
+      } else {
+        setTimeout(() => {
+          a.classList.remove('flipped');
+          b.classList.remove('flipped');
+          flipped = [];
+          lock = false;
+        }, 950);
+      }
+    }
+  }
+
+  newGame();
+</script>
+</body>
+</html>
